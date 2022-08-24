@@ -79,7 +79,7 @@ def chia_mint(minter_data):
         break
     
 
-def nft_mint_nft(nft_data_path, wallet_id, fee_mojos):
+def nft_mint_nft(nft_data_path, wallet_id, fee_mojos, override_address):
     
     if os.path.exists(nft_data_path) != True:
         sys.exit(f"ERROR: data dir not found in {nft_data_path}")
@@ -111,6 +111,10 @@ def nft_mint_nft(nft_data_path, wallet_id, fee_mojos):
         # print(json.dumps(nft_minter_data_json, sort_keys=False, indent=4))
         # print('-----------')
         
+        if len(override_address) > 0:
+            nft_minter_data_json["royalty_address"] = override_address
+            nft_minter_data_json["target_address"] = override_address
+        
         nft_minter_data_json["wallet_id"] = wallet_id
         nft_minter_data_json["fee"] = fee_mojos
         nft_minter_data_json["edition_number"] = 1
@@ -135,6 +139,7 @@ def get_args():
     parser.add_argument('-md', '--mint-data', metavar=('NFT_MINTING_DATA_PATH'), nargs=1, required=False, help='Use the minting data as source of input for what to mint.')
     parser.add_argument('-wi', '--wallet-id', metavar=('CHIA_WALLET_ID'), nargs=1, required=False, help='Chia wallet ID')
     parser.add_argument('-fm', '--fee-mojos', metavar=('CHIA_FEE_IN_MOJOS'), nargs=1, required=False, help='Chia fees in mojos. e.g -fm 100 is 0.000000000100 XCH')
+    parser.add_argument('-oa', '--override-address', metavar=('CHIA_OVERRIDE_TARGET_ADDRESS_IN_DATA'), nargs=1, required=False, help='Overrides BOTH target address and royalty address found in data.')
     
     if len(sys.argv) < 2:
         # parser.print_usage()
@@ -153,7 +158,10 @@ async def main():
         wallet_id = ARGS.wallet_id[0]
         fee_mojos = ARGS.fee_mojos[0]
         
-        nft_mint_nft(nft_data_path, wallet_id, fee_mojos)
+        if ARGS.override_address:
+            override_address = ARGS.override_address[0]
+        
+        nft_mint_nft(nft_data_path, wallet_id, fee_mojos, override_address)
 
 # Prevent auto executing main when called from another program
 if __name__ == "__main__":
