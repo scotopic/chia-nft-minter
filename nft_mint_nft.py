@@ -54,9 +54,6 @@ def chia_wallet_get_balance(wallet_id):
     return wallet_balance_json
 
 def chia_mint(minter_data):
-    # minter_json_string = json.dumps(minter_data, sort_keys=False)
-#     print("chia rpc wallet nft_mint_nft '" + minter_json_string + "';sleep 200;")
-    
     print('-------------')
     print("STARTING MINT")
     
