@@ -1,6 +1,21 @@
-# Chia NFT minter
+# Chia NFT minter and NFT toolset
 
 Python project for minting Chia NFTs.
+
+## Tools
+
+Assumes you provide an nft project as such:
+    
+    _your_nft_project/
+                      images/
+                      meta/
+                      license/license.txt
+
+1. `nft_mint_prep.py` takes your NFT project metadata and creates the data for Chia `nft_mint_nft` RPC calls to use as input.
+ * Assumption: valid Chia's CHIP-0007 (or whatever is latest) metadata.
+ * I created/use https://github.com/scotopic/nft-generate-metadata to generate Chia NFT metadata.
+1. `nft_mint_nft.py` uses data from `nft_mint_prep.py` and calls `chia rpc `chia rpc wallet nft_mint_nft` to mint.
+
 
 ## Usage
 
@@ -72,7 +87,7 @@ Python 3.8+ (hashing function)
                                     -sci 384 (split coin iterations)
                                     -wi 1
                                     -wf 234234
-1.
+1. NFT offers
  * python3 nft_offers.py -go "collection_id"
                          -wi 6
                          -wf 234234
@@ -91,27 +106,25 @@ Python 3.8+ (hashing function)
  * python3 nft_offers.py -co "collection_id"
                          -enb "edition_number" bundle
                          -xp 2.4
-                         
-  get a list of all nfts
     
-      chia rpc wallet nft_get_nfts '{"wallet_id": 3}'
-      chia wallet nft list -i 3 -f 3936560748
-      chia wallet show -f 3936560748
-    
-  which are part of THIS collection ?
-  
-  generate offers for 1 nft for X.X XCH
-  
-  generate offers for a list of NFTs for X.X XCH
-    
-    ## https://chialisp.com/docs/tutorials/offers_cli_tutorial/
-    chia wallet make_offer -f 3936560748 -o nft1u72s8payxfxljcdupr5nfqe0rjsfzqpux8z6vafjyy3ahd3vkj4sdw00ma:1 -r nft1y7aj90hvt4ypj0279jjj2m4hxr8pjjqsrcjfrj6a670t36wq7xxsnnje9f:1 -p offerfile.offer
-    
-    ## https://chialisp.com/docs/tutorials/offers_cli_tutorial/#create-a-multiple-token-offer
-    chia wallet make_offer -f 3936560748 -o nft1uc56qc53qyf4fcrffmf2th4zeujrtq5hadjwl9djytgcf6aktaws0z9c49:1 -o nft1zzf5ddlc44aac53f75y5vkjgzmuhn4xrp6scza389f3qhkl3pzkqe8f74v:1 -o nft17j3s84mlz5jk6slkdfk5svqt4ly84cq5qprc8tlqqnr8yawzrhfqjy6q92:1 -r 1:0.3 -p ~/offers/1fup_1fup_1fup_for_0.3xch.offer
-    Creating Offer
-  
-  generate offers for a editions of NFTs for X.X XCH
+        get a list of all nfts
+          chia rpc wallet nft_get_nfts '{"wallet_id": 3}'
+          chia wallet nft list -i 3 -f 3936560748
+          chia wallet show -f 3936560748
+          
+        which are part of THIS collection ?
+        
+        generate offers for 1 nft for X.X XCH
+        
+        generate offers for a list of NFTs for X.X XCH
+        
+        -> https://chialisp.com/docs/tutorials/offers_cli_tutorial/
+        chia wallet make_offer -f 3936560748 -o nft1u72s8payxfxljcdupr5nfqe0rjsfzqpux8z6vafjyy3ahd3vkj4sdw00ma:1 -r nft1y7aj90hvt4ypj0279jjj2m4hxr8pjjqsrcjfrj6a670t36wq7xxsnnje9f:1 -p offerfile.offer
+        
+        -> https://chialisp.com/docs/tutorials/offers_cli_tutorial/#create-a-multiple-token-offer
+        chia wallet make_offer -f 3936560748 -o nft1uc56qc53qyf4fcrffmf2th4zeujrtq5hadjwl9djytgcf6aktaws0z9c49:1 -o nft1zzf5ddlc44aac53f75y5vkjgzmuhn4xrp6scza389f3qhkl3pzkqe8f74v:1 -o nft17j3s84mlz5jk6slkdfk5svqt4ly84cq5qprc8tlqqnr8yawzrhfqjy6q92:1 -r 1:0.3 -p ~/offers/1fup_1fup_1fup_for_0.3xch.offer
+        
+        generate offers for a editions of NFTs for X.X XCH
     
 1. add ability to mint based on above output on testnet
  * individual
