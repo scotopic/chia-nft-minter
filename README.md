@@ -86,18 +86,21 @@ Background execution
 
 ### List all NFTs ( and convert/encode hex to hash )
 
-List all NFT IDs
- * simple list of NFTs with editions if it exists
- * use `-r` to see chia rpc raw output with encoded NFT/XCH/DID for visual inspection
- * add `-j` to output list as json
+Simple list of NFT IDs
 
     python3 nft_offers.py -l \
                           -wi 3
     
+
+Simple list of NFT IDs formatted as JSON
+
     python3 nft_offers.py -l \
                           -wi 3 \
                           -j
     
+
+Raw output with encoded NFT/XCH/DID values (chia rpc wallet nft_get_nfts)
+
     python3 nft_offers.py -l \
                           -wi 3 \
                           -r
@@ -106,7 +109,6 @@ Equivalent Chia RPC/CLI commands:
 
     chia rpc wallet nft_get_nfts '{"wallet_id": 3}'
     chia wallet nft list -i 3 -f 3936560748
-
 
 
 
