@@ -17,6 +17,15 @@ Assumes you provide an nft project as such:
 1. `nft_mint_nft.py` uses data from `nft_mint_prep.py` and calls `chia rpc `chia rpc wallet nft_mint_nft` to mint.
 
 
+## Setup
+
+`nft_offers.py` requires Chia dependencies:
+
+    python3 -m venv venvnft
+    . ./venvnft/bin/activate
+    pip3 install -r requirements.txt
+
+
 ## Usage
 
 ### NFT prep minter data
@@ -62,6 +71,40 @@ Mainnet
     -md "_minter_data_mainnet" \
     -wi 3 \
     -fm 100
+    -dry
+
+Background execution
+
+    ## Run in background (Ubuntu)
+    nohup python3 nft_mint_nft.py -md "_minter_data_mainnet" -wi 3 -fm 100 > _minting_mainnet_log.txt &
+    
+    ## Checking on minting
+    tail -f _minting_mainnet_log.txt
+    
+
+## NFT offer tools
+
+### List all NFTs ( and convert/encode hex to hash )
+
+Chia RPC/CLI commands:
+
+    chia rpc wallet nft_get_nfts '{"wallet_id": 3}'
+    chia wallet nft list -i 3 -f 3936560748
+
+All offers 
+ * use `-r` to see chia rpc raw output but hex data encoded for visual inspection
+ * add `-j` to output list as json otherwise a simple list is printed
+
+    python3 nft_offers.py -l \
+    -wi 3
+    
+    python3 nft_offers.py -l \
+    -wi 3 \
+    -j
+    
+    python3 nft_offers.py -l \
+    -wi 3 \
+    -r  
 
 
 ## Requirements
@@ -79,6 +122,7 @@ Python 3.8+ (hashing function)
                                    -wi 6
                                    -wf 234234
 
+1. Minting: Add sample project for anyone to use to mint on testnet
 1. Minting: Add ability to pre-split coins? perhaps as separate tool?
    * Does this work? Does Chia wallet pick largest coin first?
    * What happens when they change this algo?
