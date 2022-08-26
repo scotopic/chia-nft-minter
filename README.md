@@ -91,9 +91,10 @@ Chia RPC/CLI commands:
     chia rpc wallet nft_get_nfts '{"wallet_id": 3}'
     chia wallet nft list -i 3 -f 3936560748
 
-All offers 
- * use `-r` to see chia rpc raw output but hex data encoded for visual inspection
- * add `-j` to output list as json otherwise a simple list is printed
+List all NFT IDs
+ * simple list of NFTs with editions if it exists
+ * use `-r` to see chia rpc raw output with encoded NFT/XCH/DID for visual inspection
+ * add `-j` to output list as json
 
     python3 nft_offers.py -l \
     -wi 3
