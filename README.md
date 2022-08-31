@@ -122,11 +122,17 @@ Raw output with encoded NFT/XCH/DID values (chia rpc wallet nft_get_nfts)
                           -wi 3 \
                           -r
 
+Output the NFTs for a specific edition
+
+    python3 nft_offers.py -l \
+                          -wf 3936560748 \
+                          -wi 3 \
+                          -en 1 \
+
 Equivalent Chia RPC/CLI commands:
 
     chia rpc wallet nft_get_nfts '{"wallet_id": 3}'
     chia wallet nft list -i 3 -f 3936560748
-
 
 
 ## Requirements

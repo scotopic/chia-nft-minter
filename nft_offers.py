@@ -30,28 +30,33 @@ ROYALTY_PUZZLE_HASH_AS_ADDRESS_KEY = "royalty_puzzle_hash_as_address"
 NFT_COIN_ID_AS_ADDRESS_KEY = "nft_coin_id_as_address"
 UPDATER_PUZHASH_AS_ADDRESS_KEY = "updater_puzhash_as_address"
 
-def list_of_nfts_simple(chia_nft_list_json):
+
+def list_of_nfts_simple(chia_nft_list_json, only_edition_number=None):
     nft_id_list = []
     
     # print('------2------')
     # print(json.dumps(chia_nft_list_json[0], sort_keys=False, indent=4))
     # print('------2------')
     
+    num_of_items = len(chia_nft_list_json)
+    leading_zeros = len(str(num_of_items))
+    
     for nft_num in chia_nft_list_json:
         
         nft_info_json = chia_nft_list_json[nft_num]
-        
         nft_id = nft_info_json[LAUNCHER_ID_AS_NFT_KEY]
-        
-        # print("nft_id:" + nft_id)
-        string_to_display = nft_num
+        string_to_display = nft_num.zfill(leading_zeros)
         
         if not (nft_info_json.get('edition_total') is None):
-            edition_num = nft_info_json["edition_number"]
             edition_total = nft_info_json["edition_total"]
             
-            if edition_num != None and edition_total != None:
-                string_to_display += f"|{str(edition_num)}/{str(edition_total)}"
+            if edition_total > 1:
+                edition_leading_zeros = len(str(edition_total))
+                edition_num = nft_info_json["edition_number"]
+                edition_num_str = str(edition_num).zfill(edition_leading_zeros)
+                
+                string_to_display += f"|{edition_num}/{str(edition_total)}"
+            
         
         string_to_display += f"|{nft_id}"
         
@@ -59,7 +64,7 @@ def list_of_nfts_simple(chia_nft_list_json):
     
     return nft_id_list
 
-def list_of_nfts_json(chia_nft_list_json):
+def list_of_nfts_json(chia_nft_list_json, only_edition_number=None):
     nft_id_list = {}
     
     nft_num = 1
@@ -77,15 +82,26 @@ def list_of_nfts_json(chia_nft_list_json):
         if not (nft_json.get('edition_total') is None):
             editions_total = nft_json["edition_total"]
             if editions_total > 1:
-                new_attributes["edition_number"] = nft_json["edition_number"]
-                new_attributes["edition_total"] = editions_total
+                edition_num = nft_json["edition_number"]
+                
+                if only_edition_number != None:
+                    if edition_num == only_edition_number:
+                        new_attributes["edition_number"] = edition_num
+                        new_attributes["edition_total"] = editions_total
+                    else:
+                        continue
+                else:
+                    new_attributes["edition_number"] = edition_num
+                    new_attributes["edition_total"] = editions_total
+                    
+                
         
         nft_id_list[str(nft_num)] = new_attributes
         nft_num += 1
     
     return nft_id_list
 
-async def nft_list_all(wallet_id, wallet_fingerprint, raw_output=False, json_output=False):
+async def nft_list_all(wallet_id, wallet_fingerprint, raw_output=False, json_output=False, edition_number=None):
     
     all_nfts_json_encoded = await get_nft_list(wallet_id, wallet_fingerprint)
     
@@ -94,12 +110,14 @@ async def nft_list_all(wallet_id, wallet_fingerprint, raw_output=False, json_out
     if raw_output == True:
         print(json.dumps(all_nfts_json_encoded, sort_keys=False, indent=4))
     elif json_output == True:
-        list = list_of_nfts_json(all_nfts_json_encoded)
+        list = list_of_nfts_json(all_nfts_json_encoded, edition_number)
         print(json.dumps(list, sort_keys=False, indent=4))
     else:
-        list = list_of_nfts_json(all_nfts_json_encoded)
+        list = list_of_nfts_json(all_nfts_json_encoded, edition_number)
         nft_id_list = list_of_nfts_simple(list)
         print("\n".join(nft_id_list))
+
+
 
 
 from chia_overrides import list_nfts
@@ -142,8 +160,6 @@ async def get_nft_list(wallet_id, wallet_fingerprint):
     else:
         print(f"No NFTs found for wallet with id {walletid} on key {wallet_fingerprint}")
         return None
-    
-
 
 
 def get_args():
@@ -153,11 +169,14 @@ def get_args():
     # Required inputs
     parser.add_argument('-wi', '--wallet-id', metavar=('CHIA_WALLET_ID'), nargs=1, type=int, required=True, help='Chia wallet ID')
     parser.add_argument('-wf', '--wallet-fingerprint', metavar=('CHIA_WALLET_FINGERPRINT'), nargs=1, type=int, required=True, help='Chia wallet fingerprint')
-        
-    ## Assumes metadata is validated
-    parser.add_argument('-l', '--list-all-nfts', action='store_true', required=False, help='Output a list of all NFTs.')
+    
+    # Optional params
     parser.add_argument('-r', '--raw-output', action='store_true', required=False, help='Will show exactly what chia wallet RPC command shows AND encodes hex to hashes.')
     parser.add_argument('-j', '--json-output', action='store_true', required=False, help='Output the list as JSON instead.')
+    parser.add_argument('-en', '--edition-number', metavar=('NFT_EDITION_NUMBER'), nargs=1, type=int, required=False, help='Only show/use NFTs with this edition number.')
+    
+    ## Assumes metadata is validated
+    parser.add_argument('-l', '--list-all-nfts', action='store_true', required=False, help='Output a list of all NFTs.')
     
     if len(sys.argv) < 2:
         # parser.print_usage()
@@ -172,6 +191,7 @@ async def main():
     
     is_json_output = False
     is_raw_output = False
+    edition_number = None
     
     if ARGS.list_all_nfts:
         wallet_id = ARGS.wallet_id[0]
@@ -183,9 +203,10 @@ async def main():
         if ARGS.raw_output:
             is_raw_output = True
         
-        print(str(wallet_fingerprint))
-        await nft_list_all(wallet_id, wallet_fingerprint, is_raw_output, is_json_output)
-    
+        if ARGS.edition_number:
+            edition_number = ARGS.edition_number[0]
+        
+        await nft_list_all(wallet_id, wallet_fingerprint, is_raw_output, is_json_output, edition_number)
     
 
 # Prevent auto executing main when called from another program
