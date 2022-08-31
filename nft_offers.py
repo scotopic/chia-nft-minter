@@ -7,97 +7,51 @@ import json
 import time
 from subprocess import PIPE, Popen
 
+import chia_overrides
+
+
+
 # Chia dependency
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 from chia.types.blockchain_format.sized_bytes import bytes32
 from chia.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
 from chia.util.hash import std_hash
 
-# # copy from https://github.com/Chia-Network/chia-dev-tools/blob/main/cdv/cmds/cli.py
-# def hash_cmd(data: str):
-#     if data[:2] == "0x":
-#         hash_data = bytes.fromhex(data[2:])
-#     else:
-#         hash_data = bytes(data, "utf-8")
-#     return std_hash(hash_data)
 
-# async def wait_for_chia_wallet_sync_for_fingerprint(chia_wallet_fingerprint):
-#     is_synced = False
-#
-#     while True:
-#
-#
-#     return is_synced
+# Offers
+from chia.wallet.transaction_sorting import SortKey
+from chia.wallet.util.wallet_types import WalletType
+from chia.cmds.wallet import make_offer_cmd
 
-def chia_wallet_list_nfts(wallet_id):
-    print("list all nfts for wallet id " + wallet_id + " ...")
-    wallet_id_str = str(wallet_id)
-    command  = "chia rpc wallet nft_get_nfts '{\"wallet_id\": "+ wallet_id_str + "}'"
-    
-    with Popen(command, stdout=PIPE, stderr=None, shell=True) as process:
-        output = process.communicate()[0].decode("utf-8")
-        # print(output)
-    
-    try:
-        chia_nft_list_json = json.loads(output)
-    except Exception as e:
-        print(e)
-        sys.exit(f"ERROR reading {output}")
-    
-    return chia_nft_list_json
 
-def list_of_nfts_raw_and_encoded(chia_nft_list_json):
-    
-    nft_list = chia_nft_list_json["nft_list"]
-    
-    for nft_json in nft_list:
-        for key in nft_json:
-            value = nft_json[key]
-            
-            puzzle_hash = None
-            
-            # NFT id
-            if key == "launcher_id":
-                puzzle_hash = value
-                prefix = "nft"
-                converted_value = encode_puzzle_hash(bytes32.from_hexstr(puzzle_hash), prefix)
-                nft_json[key] = converted_value
-            elif "puzhash" in key or "puzzle_hash" in key or "coin_id" in key:
-                puzzle_hash = value
-                prefix = "xch"
-                converted_value = encode_puzzle_hash(bytes32.from_hexstr(puzzle_hash), prefix)
-                nft_json[key] = converted_value
-            elif key == "owner_did":
-                puzzle_hash = value
-                prefix = "chia:did"
-                converted_value = encode_puzzle_hash(bytes32.from_hexstr(puzzle_hash), prefix)
-                nft_json[key] = converted_value
-            # technically could do this but then it won't match chain_info data
-            # elif isinstance(value, str) and value[:2] == "0x":
-                # nft_json[key] = value[2:]
-            
-            if puzzle_hash != None:
-                converted_value = encode_puzzle_hash(bytes32.from_hexstr(puzzle_hash), prefix)
-                nft_json[key] = converted_value
-    
-    return nft_list
+LAUNCHER_ID_AS_NFT_KEY = "launcher_id_as_nft"
+LAUNCHER_PUZHASH_AS_ADDRESS_KEY = "launcher_puzhash_as_address"
+ROYALTY_PUZZLE_HASH_AS_ADDRESS_KEY = "royalty_puzzle_hash_as_address"
+NFT_COIN_ID_AS_ADDRESS_KEY = "nft_coin_id_as_address"
+UPDATER_PUZHASH_AS_ADDRESS_KEY = "updater_puzhash_as_address"
 
 def list_of_nfts_simple(chia_nft_list_json):
     nft_id_list = []
+    
+    # print('------2------')
+    # print(json.dumps(chia_nft_list_json[0], sort_keys=False, indent=4))
+    # print('------2------')
     
     for nft_num in chia_nft_list_json:
         
         nft_info_json = chia_nft_list_json[nft_num]
         
-        nft_id = nft_info_json["launcher_id"]
+        nft_id = nft_info_json[LAUNCHER_ID_AS_NFT_KEY]
         
         # print("nft_id:" + nft_id)
         string_to_display = nft_num
         
-        edition_num = nft_info_json["edition_number"]
-        edition_total = nft_info_json["edition_total"]
-        
-        if edition_num != None and edition_total != None:
-            string_to_display += f"|{str(edition_num)}/{str(edition_total)}"
+        if not (nft_info_json.get('edition_total') is None):
+            edition_num = nft_info_json["edition_number"]
+            edition_total = nft_info_json["edition_total"]
+            
+            if edition_num != None and edition_total != None:
+                string_to_display += f"|{str(edition_num)}/{str(edition_total)}"
         
         string_to_display += f"|{nft_id}"
         
@@ -109,26 +63,33 @@ def list_of_nfts_json(chia_nft_list_json):
     nft_id_list = {}
     
     nft_num = 1
+    
+    # print('------1------')
+    # print(json.dumps(chia_nft_list_json[0], sort_keys=False, indent=4))
+    # print('------1------')
+    
     for nft_json in chia_nft_list_json:
         
         new_attributes = {}
         
-        new_attributes["launcher_id"] = nft_json["launcher_id"]
+        new_attributes[LAUNCHER_ID_AS_NFT_KEY] = nft_json[LAUNCHER_ID_AS_NFT_KEY]
         
-        editions_total = nft_json["edition_total"]
-        if editions_total > 1:
-            new_attributes["edition_number"] = nft_json["edition_number"]
-            new_attributes["edition_total"] = editions_total
+        if not (nft_json.get('edition_total') is None):
+            editions_total = nft_json["edition_total"]
+            if editions_total > 1:
+                new_attributes["edition_number"] = nft_json["edition_number"]
+                new_attributes["edition_total"] = editions_total
         
         nft_id_list[str(nft_num)] = new_attributes
         nft_num += 1
     
     return nft_id_list
 
-def nft_list_all(wallet_id, raw_output=False, json_output=False):
+async def nft_list_all(wallet_id, wallet_fingerprint, raw_output=False, json_output=False):
     
-    all_nfts_json = chia_wallet_list_nfts(wallet_id)
-    all_nfts_json_encoded = list_of_nfts_raw_and_encoded(all_nfts_json)
+    all_nfts_json_encoded = await get_nft_list(wallet_id, wallet_fingerprint)
+    
+    # print(json.dumps(all_nfts_json_encoded, sort_keys=False, indent=4))
     
     if raw_output == True:
         print(json.dumps(all_nfts_json_encoded, sort_keys=False, indent=4))
@@ -139,16 +100,62 @@ def nft_list_all(wallet_id, raw_output=False, json_output=False):
         list = list_of_nfts_json(all_nfts_json_encoded)
         nft_id_list = list_of_nfts_simple(list)
         print("\n".join(nft_id_list))
+
+
+from chia_overrides import list_nfts
+from chia_overrides import execute_with_wallet
+from chia.wallet.nft_wallet.nft_info import NFTInfo
+from chia.wallet.util.address_type import AddressType
+from chia.server.start_wallet import SERVICE_NAME
+from chia.util.config import load_config
+from chia.util.default_root import DEFAULT_ROOT_PATH
+# from chia.types.blockchain_format.sized_bytes import bytes32
+
+async def get_nft_list(wallet_id, wallet_fingerprint):
+    config = load_config(DEFAULT_ROOT_PATH, "config.yaml", SERVICE_NAME)
     
+    print("list nfts ...")
+    wallet_rpc_port = None
+    
+    extra_params = {"wallet_id": wallet_id}
+    nft_list = await execute_with_wallet(wallet_rpc_port, wallet_fingerprint, extra_params, list_nfts)
+    
+    if nft_list != None:
+        if len(nft_list) > 0:
+            for n in nft_list:
+                nft = NFTInfo.from_json_dict(n)
+                
+                owner_did = None if nft.owner_did is None else encode_puzzle_hash(nft.owner_did, AddressType.DID.hrp(config))
+                
+                n[LAUNCHER_ID_AS_NFT_KEY] = encode_puzzle_hash(nft.launcher_id, AddressType.NFT.hrp(config))
+                n[LAUNCHER_PUZHASH_AS_ADDRESS_KEY] = encode_puzzle_hash(nft.launcher_puzhash, AddressType.XCH.hrp(config))
+                n[ROYALTY_PUZZLE_HASH_AS_ADDRESS_KEY] = encode_puzzle_hash(nft.royalty_puzzle_hash, AddressType.XCH.hrp(config))
+                n[NFT_COIN_ID_AS_ADDRESS_KEY] = encode_puzzle_hash(nft.nft_coin_id, AddressType.XCH.hrp(config))
+                n[UPDATER_PUZHASH_AS_ADDRESS_KEY] = encode_puzzle_hash(nft.updater_puzhash, AddressType.XCH.hrp(config))
+                n["owner_did"] = owner_did
+                n["data_hash"] = nft.data_hash.hex()
+                n["metadata_hash"] = nft.metadata_hash.hex()
+                n["license_hash"] = nft.license_hash.hex()
+                
+            # print(json.dumps(nft_list, sort_keys=False, indent=4))
+            return nft_list
+    else:
+        print(f"No NFTs found for wallet with id {walletid} on key {wallet_fingerprint}")
+        return None
+    
+
+
 
 def get_args():
     
     parser = argparse.ArgumentParser(description='Generate Chia offers, list available Chia NFTs in a wallet, generate offers in series.')
     
+    # Required inputs
+    parser.add_argument('-wi', '--wallet-id', metavar=('CHIA_WALLET_ID'), nargs=1, type=int, required=True, help='Chia wallet ID')
+    parser.add_argument('-wf', '--wallet-fingerprint', metavar=('CHIA_WALLET_FINGERPRINT'), nargs=1, type=int, required=True, help='Chia wallet fingerprint')
+        
     ## Assumes metadata is validated
     parser.add_argument('-l', '--list-all-nfts', action='store_true', required=False, help='Output a list of all NFTs.')
-    parser.add_argument('-wi', '--wallet-id', metavar=('CHIA_WALLET_ID'), nargs=1, required=False, help='Chia wallet ID')
-    # parser.add_argument('-wf', '--wallet-fingerprint', metavar=('CHIA_WALLET_FINGERPRINT'), nargs=1, required=False, help='Chia wallet fingerprint')
     parser.add_argument('-r', '--raw-output', action='store_true', required=False, help='Will show exactly what chia wallet RPC command shows AND encodes hex to hashes.')
     parser.add_argument('-j', '--json-output', action='store_true', required=False, help='Output the list as JSON instead.')
     
@@ -168,6 +175,7 @@ async def main():
     
     if ARGS.list_all_nfts:
         wallet_id = ARGS.wallet_id[0]
+        wallet_fingerprint = ARGS.wallet_fingerprint[0]
         
         if ARGS.json_output:
             is_json_output = True
@@ -175,8 +183,10 @@ async def main():
         if ARGS.raw_output:
             is_raw_output = True
         
-        # nft_list_all(wallet_id, wallet_fingerprint, json_output)
-        nft_list_all(wallet_id, is_raw_output, is_json_output)
+        print(str(wallet_fingerprint))
+        await nft_list_all(wallet_id, wallet_fingerprint, is_raw_output, is_json_output)
+    
+    
 
 # Prevent auto executing main when called from another program
 if __name__ == "__main__":
