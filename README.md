@@ -25,6 +25,20 @@ Assumes you provide an nft project as such:
     . ./venvnft/bin/activate
     pip3 install -r requirements.txt
 
+### Troubleshooting
+
+On Ubuntu 20.04.4 LTS if you get:
+
+    ERROR: Command errored out with exit status 1
+    ...
+    error: invalid command 'bdist_wheel'
+    ----------------------------------------
+    ERROR: Failed building wheel for zstd
+
+Fix:
+
+    sudo apt install python3.8-venv python3.8-dev
+
 
 ## Usage
 
@@ -89,12 +103,14 @@ Background execution
 Simple list of NFT IDs
 
     python3 nft_offers.py -l \
+                          -wf 3936560748 \
                           -wi 3
     
 
 Simple list of NFT IDs formatted as JSON
 
     python3 nft_offers.py -l \
+                          -wf 3936560748 \
                           -wi 3 \
                           -j
     
@@ -102,6 +118,7 @@ Simple list of NFT IDs formatted as JSON
 Raw output with encoded NFT/XCH/DID values (chia rpc wallet nft_get_nfts)
 
     python3 nft_offers.py -l \
+                          -wf 3936560748 \
                           -wi 3 \
                           -r
 
