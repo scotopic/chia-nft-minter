@@ -134,6 +134,22 @@ Equivalent Chia RPC/CLI commands:
     chia rpc wallet nft_get_nfts '{"wallet_id": 3}'
     chia wallet nft list -i 3 -f 3936560748
 
+### Create offers NFTs
+
+Create offer for a single NFT for XCH (price is per NFT)
+
+    python3 nft_offers.py -co \
+                          -wf 3936560748 \
+                          -o nft1uc56qc53qyf4fcrffmf2th4zeujrtq5hadjwl9djytgcf6aktaws0z9c49 \
+                          -xch 0.1 \
+                          -pn fup \
+                          -fo _offers/
+
+Equivalent Chia RPC/CLI commands:
+
+    chia wallet make_offer -f 3936560748 -o nft1uc56qc53qyf4fcrffmf2th4zeujrtq5hadjwl9djytgcf6aktaws0z9c49:1 -r 1:0.3 -p 1fup_x_0.3xch.offer
+
+
 
 ## Requirements
 
