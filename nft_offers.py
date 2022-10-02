@@ -55,7 +55,7 @@ def list_of_nfts_simple(chia_nft_list_json, only_edition_number=None):
                 edition_num = nft_info_json["edition_number"]
                 edition_num_str = str(edition_num).zfill(edition_leading_zeros)
                 
-                string_to_display += f"|{edition_num}/{str(edition_total)}"
+                string_to_display += f"|{edition_num_str}/{str(edition_total)}"
             
         
         string_to_display += f"|{nft_id}"
@@ -171,7 +171,7 @@ from chia_overrides import execute_with_wallet
 from chia.server.start_wallet import SERVICE_NAME
 from chia.util.config import load_config
 from chia.util.default_root import DEFAULT_ROOT_PATH
-async def nft_create_offer(wallet_fingerprint, offer, xch_request, project_name, file_output_dir, fee=0, skip_prompts=True):
+async def nft_create_offer(wallet_fingerprint, offer, xch_request, project_name, file_output_dir, fee=0, skip_prompts=True, edition_number=None):
     '''
     nft_to_offer = coins_maker[0]
     nft_info: Optional[PuzzleInfo] = match_puzzle(nft_to_offer.full_puzzle)
@@ -194,7 +194,10 @@ async def nft_create_offer(wallet_fingerprint, offer, xch_request, project_name,
     config = load_config(DEFAULT_ROOT_PATH, "config.yaml", SERVICE_NAME)
     wallet_rpc_port = None
     
-    offer_file_name=f"{project_name}_{offer}_x_{xch_request}_xch.offer"
+    if edition_number:
+        offer_file_name=f"{project_name}_ed_{edition_number}_{offer}_x_{xch_request}_xch.offer"
+    else:
+        offer_file_name=f"{project_name}_{offer}_x_{xch_request}_xch.offer"
     
     offer = f"{offer}:1"
     request = f"1:{xch_request}"
@@ -216,22 +219,119 @@ async def nft_create_offer(wallet_fingerprint, offer, xch_request, project_name,
     # make_offer_cmd(1, 3936560748, "nft16lf2eyrhhaalslhtvhwa9xufyx8gccn9ytqjy0kwpakt2pz2ylsq7kvl5d:1", "1:0.3", "test_offer.offer")
     print("done making an offer")
 
+
+async def nft_create_offer_for_edition(wallet_fingerprint, wallet_id, xch_request, project_name, file_output_dir, edition_number, fee=0, skip_prompts=True):
+    
+    # get a list of NFTs to edition
+    all_nfts_json_encoded = await get_nft_list(wallet_id, wallet_fingerprint)
+    
+    # loop through each and create offers
+    for nft_to_offer in all_nfts_json_encoded:
+        
+        # offers for ALL editions/NFTs
+        nft_id = nft_to_offer["launcher_id_as_nft"]
+        nft_edition_num = nft_to_offer["edition_number"]
+        
+        if edition_number > 0 and edition_number != nft_edition_num:
+            # skip non-specified editions
+            continue
+        
+        await nft_create_offer(wallet_fingerprint, nft_id, xch_request, project_name, file_output_dir, fee, skip_prompts, nft_edition_num)
+
+import requests
+import json
+import pathlib
+async def nft_upload_offers(file_output_dir):
+    
+    DEXIE_URI_TESTNET = "https://api-testnet.dexie.space/v1/offers"
+    DEXIE_URI_MAINNET = "https://api.dexie.space/v1/offers"
+    
+    if os.path.exists(file_output_dir) != True:
+        sys.exit(f"ERROR output dir not found: {file_output_dir}")
+    
+    using_testnet = True
+    dexie_api_uri = DEXIE_URI_TESTNET
+    
+    config = load_config(DEFAULT_ROOT_PATH, "config.yaml", SERVICE_NAME)
+    
+    chia_selected_network = config["selected_network"]
+    
+    if "mainnet" in chia_selected_network:
+        dexie_api_uri = DEXIE_URI_MAINNET
+        using_testnet = False
+    
+    print(f"uploading offers via {dexie_api_uri}")
+    
+    # POST https://api.dexie.space/v1/offers
+    # curl -X POST -H 'Content-Type: application/json' -d '{"offer":"offer1..."}' https://api.dexie.space/v1/offers
+    
+    dir_enumerator = os.listdir(file_output_dir)
+    dirs_sorted = sorted(dir_enumerator)
+    
+    file_index = 1
+    for count, filename in enumerate(dirs_sorted):
+        
+        file_extension = pathlib.Path(filename).suffix
+        
+        if ".offer" not in file_extension:
+            continue
+        
+        full_file_path = f"{file_output_dir}/{filename}"
+        try:
+            with open(full_file_path, 'r') as infile:
+                offer_file = infile.readline()
+        except Exception as e:
+            print(e)
+            sys.exit(f"ERROR reading {full_file_path}")
+        
+        offer_file_json_payload = {"offer": f"{offer_file}"}
+        
+        upload_response = requests.post(dexie_api_uri, json=offer_file_json_payload)
+        
+        # print(upload_response.status_code)
+        # print(upload_response.json())
+        
+        filename_response = filename + ".response"
+        json_response = upload_response.json()
+        
+        resp_string = "error"
+        if json_response["success"] == True:
+            resp_string = "success"
+        
+        known_string = '-'
+        if 'known' in json_response and json_response["known"] == True:
+            known_string = "known"
+            
+        print(f"{file_index} | {resp_string} | {known_string}")
+        
+        # save the json
+        try:
+            with open(f"{file_output_dir}/" + filename_response, 'w') as outfile:
+                json.dump(json_response, outfile, sort_keys=False, indent=4)
+        except Exception as e:
+            print(e)
+            sys.exit(f"ERROR writing out {filename_response}")
+        
+        file_index += 1
+    
+
 def get_args():
     
     parser = argparse.ArgumentParser(description='Generate Chia offers, list available Chia NFTs in a wallet, generate offers in series.')
     
+    ## Available commands (assumes metadata is validated)
+    parser.add_argument('-l', '--list-all-nfts', action='store_true', required=False, help='Output a list of all NFTs.')
+    parser.add_argument('-co', '--create-offer', action='store_true', required=False, help='Create Chia NFT offer file.')
+    parser.add_argument('-up', '--upload-offers', action='store_true', required=False, help='Upload Chia NFT offers to Dexie.space')
+    
     # Required inputs
     parser.add_argument('-wi', '--wallet-id', metavar=('CHIA_WALLET_ID'), nargs=1, type=int, required=False, help='Chia wallet ID')
-    parser.add_argument('-wf', '--wallet-fingerprint', metavar=('CHIA_WALLET_FINGERPRINT'), nargs=1, type=int, required=True, help='Chia wallet fingerprint')
+    parser.add_argument('-wf', '--wallet-fingerprint', metavar=('CHIA_WALLET_FINGERPRINT'), nargs=1, type=int, required=False, help='Chia wallet fingerprint')
     
     # Optional params
     parser.add_argument('-r', '--raw-output', action='store_true', required=False, help='Will show exactly what chia wallet RPC command shows AND encodes hex to hashes.')
     parser.add_argument('-j', '--json-output', action='store_true', required=False, help='Output the list as JSON instead.')
     parser.add_argument('-en', '--edition-number', metavar=('NFT_EDITION_NUMBER'), nargs=1, type=int, required=False, help='Only show/use NFTs with this edition number.')
-    
-    ## Assumes metadata is validated
-    parser.add_argument('-l', '--list-all-nfts', action='store_true', required=False, help='Output a list of all NFTs.')
-    parser.add_argument('-co', '--create-offer', action='store_true', required=False, help='Create Chia NFT offer file.')
     
     ## Making offers
     parser.add_argument('-o', '--offering', metavar=('NFT_OFFER'), nargs=1, required=False, help='NFT being offered')
@@ -276,7 +376,6 @@ async def main():
     if ARGS.create_offer:
         wallet_fingerprint = ARGS.wallet_fingerprint[0]
         
-        offer = ARGS.offering[0]
         xch_request = ARGS.xch_request[0]
         project_name = ARGS.project_name[0]
         file_output_dir = ARGS.file_output_dir[0]
@@ -287,8 +386,21 @@ async def main():
         if ARGS.skip_prompts:
             skip_prompts = ARGS.skip_prompts[0]
         
-        await nft_create_offer(wallet_fingerprint, offer, xch_request, project_name, file_output_dir, fee, skip_prompts)
+        if ARGS.edition_number:
+            wallet_id = ARGS.wallet_id[0]
+            edition_number = ARGS.edition_number[0]
+            
+            await nft_create_offer_for_edition(wallet_fingerprint, wallet_id, xch_request, project_name, file_output_dir, edition_number, fee, skip_prompts)
+        else:
+            offer = ARGS.offering[0]
+            
+            await nft_create_offer(wallet_fingerprint, offer, xch_request, project_name, file_output_dir, fee, skip_prompts)
     
+    if ARGS.upload_offers:
+        
+        file_output_dir = ARGS.file_output_dir[0]
+        
+        await nft_upload_offers(file_output_dir)
 
 # Prevent auto executing main when called from another program
 if __name__ == "__main__":
