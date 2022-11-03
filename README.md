@@ -27,7 +27,9 @@ Assumes you provide an nft project as such:
 
 ### Troubleshooting
 
-On Ubuntu 20.04.4 LTS if you get:
+1. On Ubuntu 20.04.4 LTS if you get:
+
+Issue:
 
     ERROR: Command errored out with exit status 1
     ...
@@ -39,6 +41,11 @@ Fix:
 
     sudo apt install python3.8-venv python3.8-dev
 
+2. If you attempt to mint and run into an issue it's likley you need to run the following workaround until the root issue is fixed:
+
+Fix:
+
+    chia init --fix-ssl-permissions
 
 ## Usage
 

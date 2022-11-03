@@ -44,7 +44,7 @@ def chia_wallet_get_balance(wallet_id):
         
     except Exception as e:
         print(e)
-        sys.exit(f"ERROR reading {wallet_json}")
+        sys.exit(f"ERROR reading {wallet_response_json}")
     
     if IS_DRY_RUN == True:
         print('-----------')
