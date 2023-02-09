@@ -1,5 +1,5 @@
 ## Requirements
 
 ### nft_offers.py
-chia-blockchain==1.5.1
+chia-blockchain==1.6.2
 requests==2.28.1

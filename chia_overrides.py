@@ -8,47 +8,30 @@ from chia.rpc.wallet_rpc_client import WalletRpcClient
 from chia.util.config import load_config
 from chia.util.default_root import DEFAULT_ROOT_PATH
 from chia.util.ints import uint16
-from chia.cmds.cmds_util import get_wallet
+from chia.cmds.cmds_util import get_any_service_client
 
 # Other useful links
-#   https://github.com/Chia-Network/chia-blockchain/blob/1.5.1/chia/cmds/wallet.py
-#   https://github.com/Chia-Network/chia-blockchain/blob/1.5.1/chia/cmds/wallet_funcs.py
-#   https://github.com/Chia-Network/chia-blockchain/blob/1.5.1/chia/rpc/wallet_rpc_client.py
+#   https://github.com/Chia-Network/chia-blockchain/blob/1.6.2/chia/cmds/wallet.py
+#   https://github.com/Chia-Network/chia-blockchain/blob/1.6.2/chia/cmds/wallet_funcs.py
+#   https://github.com/Chia-Network/chia-blockchain/blob/1.6.2/chia/rpc/wallet_rpc_client.py
 
-# https://github.com/Chia-Network/chia-blockchain/blob/1.5.1/chia/cmds/cmds_util.py
+# https://github.com/Chia-Network/chia-blockchain/blob/1.6.2/chia/cmds/cmds_util.py
 async def execute_with_wallet(
     wallet_rpc_port: Optional[int],
     fingerprint: int,
     extra_params: Dict[str, Any],
-    function: Callable[[Dict[str, object], WalletRpcClient, int], Awaitable[None]],
+    function: Callable[[Dict[str, Any], WalletRpcClient, int], Awaitable[None]],
 ):
-    try:
-        config = load_config(DEFAULT_ROOT_PATH, "config.yaml")
-        self_hostname = config["self_hostname"]
-        if wallet_rpc_port is None:
-            wallet_rpc_port = config["wallet"]["rpc_port"]
-        wallet_client = await WalletRpcClient.create(self_hostname, uint16(wallet_rpc_port), DEFAULT_ROOT_PATH, config)
-        wallet_client_f = await get_wallet(wallet_client, fingerprint=fingerprint)
-        if wallet_client_f is None:
-            wallet_client.close()
-            await wallet_client.await_closed()
-            return None
-        wallet_client, fingerprint = wallet_client_f
-        result = await function(extra_params, wallet_client, fingerprint)
-    except KeyboardInterrupt:
-        pass
-    except Exception as e:
-        if isinstance(e, aiohttp.ClientConnectorError):
-            print(
-                f"Connection error. Check if the wallet is running at {wallet_rpc_port}. "
-                "You can run the wallet via:\n\tchia start wallet"
-            )
+    wallet_client: Optional[WalletRpcClient]
+    async with get_any_service_client("wallet", wallet_rpc_port, fingerprint=fingerprint) as (wallet_client, _, new_fp):
+        if wallet_client is not None:
+            assert new_fp is not None  # wallet only sanity check
+            result = await function(extra_params, wallet_client, new_fp)
+            
+            return result
         else:
-            print(f"Exception from 'wallet' {e}")
-    wallet_client.close()
-    await wallet_client.await_closed()
-    return result
-
+            return "ERROR: oh boy, you better look at the source code now x_x"
+            
 
 
 # https://github.com/Chia-Network/chia-blockchain/blob/1.5.1/chia/cmds/wallet_funcs.py
