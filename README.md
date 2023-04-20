@@ -21,6 +21,12 @@ Assumes you provide an nft project as such:
 
 `nft_offers.py` requires Chia dependencies:
 
+## Windows
+    python -m venv venvnft
+    ./venvnft/Scripts/activate
+    pip3 install -r requirements.txt
+
+## Linux / Mac OS
     python3 -m venv venvnft
     . ./venvnft/bin/activate
     pip3 install -r requirements.txt
